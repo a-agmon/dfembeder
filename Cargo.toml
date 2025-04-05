@@ -1,10 +1,10 @@
 [package]
-name = "arrow_analyzer"
+name = "dfembed"
 version = "0.1.0"
 edition = "2024"
 
 [lib]
-name = "arrow_analyzer"
+name = "dfembed"
 crate-type = ["cdylib"]
 
 [dependencies]
@@ -38,3 +38,6 @@ lance = { git = "https://github.com/a-agmon/lance", branch = "main" }
 chrono = "0.4.40"
 crossbeam = "0.8.4"
 os = "0.1.0"
+
+[dev-dependencies]
+tempfile = "3"

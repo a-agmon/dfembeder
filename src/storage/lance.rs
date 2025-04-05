@@ -6,7 +6,7 @@ use futures::StreamExt;
 use lance::Dataset;
 use lance::dataset::{WriteMode, WriteParams};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 pub struct LanceStore {
@@ -21,6 +21,39 @@ impl LanceStore {
             file_path: file_path.to_string(),
             vec_dim: vector_dim,
             schema: Self::get_default_schema(vector_dim),
+        }
+    }
+
+    /// Creates a new LanceStore instance within a specified database directory.
+    ///
+    /// This constructor is designed for scenarios where Lance datasets are organized
+    /// within a directory structure representing a database.
+    ///
+    /// # Arguments
+    ///
+    /// * `database_name` - The name or path of the directory to store the Lance table.
+    ///                     If it doesn't contain path separators ('/' or '\'), it's treated as a directory name.
+    ///                     Otherwise, it's treated as a full path.
+    /// * `table_name` - The name of the Lance table (without the `.lance` extension).
+    /// * `vector_dim` - The dimensionality of the vectors to be stored.
+    ///
+    /// # Returns
+    ///
+    /// A `LanceStore` instance configured with the specified schema and file path.
+    pub fn new_with_database(database_name: &str, table_name: &str, vector_dim: usize) -> Self {
+        let table_name = format!("{}.lance", table_name);
+        let mut path_buf = PathBuf::from(database_name);
+        path_buf.push(table_name);
+
+        let file_path = path_buf
+            .to_str()
+            .expect("Failed to convert path to string")
+            .to_string();
+
+        Self {
+            schema: Self::get_default_schema(vector_dim),
+            file_path: file_path,
+            vec_dim: vector_dim,
         }
     }
 
@@ -69,7 +102,7 @@ impl LanceStore {
             Field::new("filename", DataType::Utf8, false),
             Field::new("text", DataType::Utf8, false),
             Field::new(
-                "embedding",
+                "vector",
                 DataType::FixedSizeList(
                     Arc::new(Field::new("item", DataType::Float32, true)),
                     vector_dim as i32,
@@ -128,5 +161,39 @@ mod tests {
             !Path::new(test_file).exists(),
             "Failed to clean up test file"
         );
+    }
+
+    #[test]
+    fn test_new_with_database_paths() {
+        let table_name = "test_table";
+        let vector_dim = 3;
+        let lance_file_name = format!("{}.lance", table_name);
+
+        // 1. Test with a simple directory name
+        let simple_db_name = "my_db";
+        let store1 = LanceStore::new_with_database(simple_db_name, table_name, vector_dim);
+        let mut expected_path1_buf = PathBuf::from(simple_db_name);
+        expected_path1_buf.push(&lance_file_name);
+        assert_eq!(store1.file_path, expected_path1_buf.to_str().unwrap());
+
+        // 2. Test with a path using OS-specific separators
+        let temp_dir_os = tempfile::Builder::new()
+            .prefix("test_os")
+            .tempdir()
+            .unwrap();
+        let os_path_str = temp_dir_os.path().to_str().unwrap();
+        let store2 = LanceStore::new_with_database(os_path_str, table_name, vector_dim);
+        let mut expected_path2_buf = PathBuf::from(os_path_str);
+        expected_path2_buf.push(&lance_file_name);
+        assert_eq!(
+            store2.file_path,
+            expected_path2_buf.to_str().unwrap(),
+            "Test failed for OS-specific path"
+        );
+
+        // We don't need separate tests for forward/back slashes anymore,
+        // as PathBuf handles the OS-specific logic.
+
+        // Temp directory is automatically cleaned up when `temp_dir_os` goes out of scope
     }
 }

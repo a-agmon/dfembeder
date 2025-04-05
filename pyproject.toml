@@ -3,9 +3,9 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "arrow_analyzer"
+name = "dfembed"
 version = "0.1.0"
-description = "A Python library using Rust and PyO3 to analyze Arrow tables"
+description = "A Python library using Rust and PyO3 to index Arrow tables"
 authors = [{ name = "Alon Agmon", email = "alon.agmon@gmail.com" }]
 requires-python = ">=3.8"
 dependencies = ["polars>=0.18.0", "pyarrow>=11.0.0"]
