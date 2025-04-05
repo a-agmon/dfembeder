@@ -6,7 +6,7 @@ use std::sync::Once;
 use std::time::Instant;
 
 mod arrow;
-use arrow::utils::{convert_py_to_arrow_table, print_record_batches, print_schema};
+use arrow::utils::{convert_py_to_arrow_table, print_schema};
 mod embedding;
 mod storage;
 
@@ -44,7 +44,7 @@ fn analyze_arrow_table(py_arrow_table: &Bound<'_, PyAny>) -> PyResult<()> {
     info!("Got record batches in {:?}", ts.elapsed());
 
     if record_batches.is_empty() {
-        println!("Arrow Table contains no batches.");
+        info!("Arrow Table contains no batches.");
         return Ok(());
     }
 
@@ -54,14 +54,19 @@ fn analyze_arrow_table(py_arrow_table: &Bound<'_, PyAny>) -> PyResult<()> {
     // Print schema
     print_schema(&schema);
 
-    // Print record batch information
-    print_record_batches(&record_batches, &schema);
-
     Ok(())
 }
 
 #[pyfunction]
-fn index_arrow_table(py_arrow_table: &Bound<'_, PyAny>) -> PyResult<()> {
+fn index_arrow_table(
+    py_arrow_table: &Bound<'_, PyAny>,
+    num_threads: usize,
+    chunk_size: usize,
+    write_buffer_size: usize,
+    database_name: &str,
+    table_name: &str,
+    vector_dim: usize,
+) -> PyResult<()> {
     init_tracing();
     info!("Indexing Arrow table");
     // Convert PyArrow table to Arrow table
@@ -78,7 +83,14 @@ fn index_arrow_table(py_arrow_table: &Bound<'_, PyAny>) -> PyResult<()> {
     // Get schema from the first batch
     let schema = record_batches[0].schema();
     let indexer = Indexer::new(record_batches, schema);
-    let result = indexer.run(10, 500);
+    let result = indexer.run(
+        num_threads,
+        chunk_size,
+        write_buffer_size,
+        database_name,
+        table_name,
+        vector_dim,
+    );
     if let Err(e) = result {
         error!("Error indexing arrow table: {}", e);
     }
@@ -88,7 +100,7 @@ fn index_arrow_table(py_arrow_table: &Bound<'_, PyAny>) -> PyResult<()> {
 
 /// Define the Python module. The function `analyze_arrow_table` will be exposed to Python.
 #[pymodule]
-fn arrow_analyzer(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn dfembed(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(analyze_arrow_table, m)?)?;
     m.add_function(wrap_pyfunction!(index_arrow_table, m)?)?;
     Ok(())

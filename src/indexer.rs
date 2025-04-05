@@ -25,8 +25,6 @@ pub struct Indexer {
     schema: Arc<Schema>,
 }
 
-const WRITER_BATCH_SIZE: usize = 2000;
-
 impl Indexer {
     pub fn new(batches: &[RecordBatch], schema: Arc<Schema>) -> Self {
         let _ = Embedder::new().unwrap();
@@ -57,17 +55,25 @@ impl Indexer {
     /// - There are issues with the embedding model
     /// - The Lance storage operations fail
     /// - Channel communication breaks down
-    pub fn run(&self, num_workers: usize, embedding_chunk_size: usize) -> anyhow::Result<()> {
+    pub fn run(
+        &self,
+        num_workers: usize,
+        embedding_chunk_size: usize,
+        write_buffer_size: usize,
+        database_name: &str,
+        table_name: &str,
+        vector_dim: usize,
+    ) -> anyhow::Result<()> {
         // Initialize Tokio runtime for the writer thread
         info!(
-            "Starting indexer with {} workers and embedding chunk size {}",
-            num_workers, embedding_chunk_size
+            "Starting indexer with {} workers and embedding chunk size {} and write buffer size {}",
+            num_workers, embedding_chunk_size, write_buffer_size
         );
         let rt = Runtime::new()?;
         let threadpool = rayon::ThreadPoolBuilder::new().build().unwrap();
         let (send_to_embedder, receive_from_embedder) = channel::unbounded();
         let (send_to_writer, receive_from_writer) = channel::unbounded();
-        let store = LanceStore::new("test.lance", 1024);
+        let store = LanceStore::new_with_database(database_name, table_name, vector_dim);
 
         if let Err(e) = transform_batches(&self.batches, &self.schema, send_to_embedder.clone()) {
             error!("Error transforming batches: {}", e);
@@ -99,13 +105,27 @@ impl Indexer {
         drop(send_to_writer);
 
         // start the writing thread on the main thread
+        let mut write_buffer = EmbeddingBatch {
+            texts: Vec::new(),
+            embeddings: Vec::new(),
+        };
         while let Ok(embedding_batch) = receive_from_writer.recv() {
-            let texts: Vec<&str> = embedding_batch.texts.iter().map(|s| s.as_str()).collect();
-            // Block on the async add_vectors call
-            if let Err(e) =
-                rt.block_on(store.add_vectors(&texts, &texts, embedding_batch.embeddings))
-            {
-                error!("Error adding vectors: {}", e);
+            // we add the texts and embeddings to the buffer
+            write_buffer.texts.extend(embedding_batch.texts);
+            write_buffer.embeddings.extend(embedding_batch.embeddings);
+
+            if write_buffer.texts.len() >= write_buffer_size {
+                // Write the buffer if it's full
+                if let Err(e) = write_embedding_buffer(&store, &mut write_buffer, &rt) {
+                    error!("Error writing embedding buffer: {}", e);
+                }
+            }
+        }
+        // write the remaining embeddings
+        if write_buffer.texts.len() > 0 {
+            // Write any remaining data in the buffer
+            if let Err(e) = write_embedding_buffer(&store, &mut write_buffer, &rt) {
+                error!("Error writing remaining embedding buffer: {}", e);
             }
         }
         info!("Writer thread finished - closing channel");
@@ -113,6 +133,22 @@ impl Indexer {
 
         Ok(())
     }
+}
+
+/// Helper function to write the contents of the embedding buffer to the Lance store.
+fn write_embedding_buffer(
+    store: &LanceStore,
+    embedding_buffer: &mut EmbeddingBatch,
+    rt: &Runtime,
+) -> anyhow::Result<()> {
+    let texts: Vec<&str> = embedding_buffer.texts.iter().map(|s| s.as_str()).collect();
+    // Note: We clone embeddings here to satisfy LanceStore::add_vectors signature.
+    // The buffer is cleared afterwards, so this clone is temporary.
+    rt.block_on(store.add_vectors(&texts, &texts, embedding_buffer.embeddings.clone()))?;
+    // Clear the buffer after successful write
+    embedding_buffer.texts.clear();
+    embedding_buffer.embeddings.clear();
+    Ok(())
 }
 
 /// read the parquet file and send the records to the embedder
