@@ -16,14 +16,6 @@ pub struct LanceStore {
 }
 
 impl LanceStore {
-    pub fn new(file_path: &str, vector_dim: usize) -> Self {
-        Self {
-            file_path: file_path.to_string(),
-            vec_dim: vector_dim,
-            schema: Self::get_default_schema(vector_dim),
-        }
-    }
-
     /// Creates a new LanceStore instance within a specified database directory.
     ///
     /// This constructor is designed for scenarios where Lance datasets are organized
@@ -116,16 +108,22 @@ impl LanceStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[tokio::test]
     async fn test_add_vectors() {
-        // Create a temporary test file path
-        let test_file = "test_vectors.lance";
+        // Define test database and table names
+        let test_db = "test_db_add_vectors";
+        let test_table_name = "test_vectors";
+        let test_lance_file = format!("{}.lance", test_table_name);
+        let expected_path = Path::new(test_db).join(&test_lance_file);
 
-        // Clean up any existing test file
-        if Path::new(test_file).exists() {
-            fs::remove_dir_all(test_file).unwrap();
+        // Clean up any existing test directory
+        if Path::new(test_db).exists() {
+            fs::remove_dir_all(test_db).unwrap();
         }
+        // Create the database directory for the test
+        fs::create_dir_all(test_db).expect("Failed to create test database directory");
 
         // Define test data
         let filenames = ["doc1.txt", "doc2.txt", "doc3.txt"];
@@ -141,8 +139,8 @@ mod tests {
             vec![7.0, 8.0, 9.0],
         ];
 
-        // Initialize LanceStore
-        let store = LanceStore::new(test_file, vector_dim);
+        // Initialize LanceStore using the test db and table names
+        let store = LanceStore::new_with_database(test_db, test_table_name, vector_dim);
 
         // Add vectors
         let result = store.add_vectors(&filenames, &texts, vectors).await;
@@ -150,16 +148,20 @@ mod tests {
         // Verify the operation succeeded
         assert!(result.is_ok(), "Failed to add vectors: {:?}", result.err());
 
-        // Verify the file was created
-        assert!(Path::new(test_file).exists(), "Lance file was not created");
-
-        // Clean up the test file
-        fs::remove_dir_all(test_file).unwrap();
-
-        // Verify the file was deleted
+        // Verify the lance directory/file was created at the expected path
         assert!(
-            !Path::new(test_file).exists(),
-            "Failed to clean up test file"
+            expected_path.exists(),
+            "Lance dataset directory was not created at {:?}",
+            expected_path
+        );
+
+        // Clean up the test directory
+        fs::remove_dir_all(test_db).unwrap();
+
+        // Verify the directory was deleted
+        assert!(
+            !Path::new(test_db).exists(),
+            "Failed to clean up test directory"
         );
     }
 
