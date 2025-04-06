@@ -1,11 +1,13 @@
 use embedding::static_embeder::Embedder;
+use once_cell::sync::Lazy;
 use pyo3::Bound;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
-use pyo3::wrap_pyfunction;
 use std::path::PathBuf;
 use std::sync::Once;
 use std::time::Instant;
+use storage::lance::LanceStore;
+use tokio::runtime::Runtime;
 
 mod arrow;
 use arrow::utils::{convert_py_to_arrow_table, print_schema};
@@ -26,6 +28,14 @@ fn init_tracing() {
         tracing_subscriber::fmt::init();
     });
 }
+
+// Global Tokio runtime instance
+static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to create Tokio runtime")
+});
 
 #[pyclass(module = "dfembed.dfembed")]
 struct DfEmbedderRust {
@@ -55,44 +65,30 @@ impl DfEmbedderRust {
         vector_dim: usize,
     ) -> PyResult<Self> {
         init_tracing();
-        info!("Initializing DfEmbedderRust");
         info!("Initializing Embedder");
-        match Embedder::new() {
-            Ok(embedder) => {
-                info!("Embedder initialized");
-                Ok(DfEmbedderRust {
-                    num_threads,
-                    embedding_chunk_size,
-                    write_buffer_size,
-                    database_path: PathBuf::from(database_name),
-                    vector_dim,
-                    embedder,
-                })
-            }
-            Err(e) => {
-                error!("Error initializing Embedder: {}", e);
-                Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                    "Error initializing Embedder: {}",
-                    e
-                )))
-            }
-        }
+        let embedder = Embedder::new().expect("Failed to create real Embedder");
+        info!("Embedder initialized");
+        Ok(DfEmbedderRust {
+            num_threads,
+            embedding_chunk_size,
+            write_buffer_size,
+            database_path: PathBuf::from(database_name),
+            vector_dim,
+            embedder,
+        })
     }
 
     /// Analyzes an Arrow table by printing its schema.
     fn analyze_table(&self, py_arrow_table: &Bound<'_, PyAny>) -> PyResult<()> {
         info!("Analyzing Arrow table via DfEmbedderRust");
         let py_table = convert_py_to_arrow_table(py_arrow_table)?;
-
         let record_batches = py_table.batches();
-
         if record_batches.is_empty() {
             info!("Arrow Table contains no batches.");
             return Ok(());
         }
 
         let schema = record_batches[0].schema();
-
         print_schema(&schema);
 
         Ok(())
@@ -132,6 +128,30 @@ impl DfEmbedderRust {
         }
 
         Ok(())
+    }
+
+    /// Finds similar items to a query vector in the specified table.
+    /// Blocks until the search completes and returns a Vec<String>.
+    fn find_similar(&self, query: String, table_name: String, k: usize) -> PyResult<Vec<String>> {
+        let db_path = self.database_path.clone();
+        let vector_dim = self.vector_dim;
+        // Assuming Embedder doesn't need cloning if find_most_similar takes &Embedder
+        // If it does need Clone, add: let embedder = self.embedder.clone();
+        let embedder_ref = &self.embedder; // Pass a reference
+
+        RUNTIME.block_on(async move {
+            let vector_store =
+                LanceStore::new_with_database(&db_path.to_string_lossy(), &table_name, vector_dim);
+            vector_store
+                .find_most_similar(&query, k, embedder_ref) // Use reference
+                .await
+                .map_err(|e| {
+                    PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                        "Error finding similar items: {}",
+                        e
+                    ))
+                })
+        })
     }
 }
 

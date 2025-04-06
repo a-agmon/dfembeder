@@ -86,19 +86,19 @@ class DfEmbedder:
         # The detailed parameter is currently ignored
         self._rust_embedder.analyze_table(table)
 
-    def quick_index(self, table: pa.Table):
+    def find_similar(self, query: str, table_name: str, k: int):
         """
-        Quick index an Arrow table using the instance's configured Rust backend
-        and the default table name specified during initialization.
+        Find similar items in the database using the configured Rust backend.
 
         Args:
-            table: PyArrow Table object
+            query: The query string to find similar items for.
+            table_name: The name of the table to search in.
+            k: The number of similar items to return.
 
         Returns:
-            None. Raises an exception on Rust error.
+            A list of the k most similar items to the query.
         """
-        # This method calls index_table using the Rust instance and the default table name.
-        self.index_table(table, table_name=self.default_table_name)
+        return self._rust_embedder.find_similar(query, table_name, k)
 
     # Example of accessing configuration (if needed)
     # def get_database_path(self) -> str:

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use candle::{DType, Device, Tensor};
-use ndarray::{Array1, Array2, ArrayView1};
+use ndarray::{Array1, Array2};
 use safetensors::SafeTensors;
 use std::fs;
 use std::io::Write;
@@ -27,7 +27,7 @@ pub enum EmbedderError {
 }
 
 pub struct Embedder {
-    model_path: PathBuf,
+    _model_path: PathBuf,
     embedding_weights: Tensor,
     tokenizer: Tokenizer,
     pub embedding_dim: usize,
@@ -74,7 +74,7 @@ impl Embedder {
         )?;
 
         Ok(Self {
-            model_path,
+            _model_path: model_path,
             embedding_weights,
             tokenizer,
             embedding_dim: DEFAULT_EMBEDDING_DIM,
@@ -120,8 +120,8 @@ impl Embedder {
         Ok(model_dir)
     }
 
-    /// Embed a single string
-    pub fn embed(&self, text: &str) -> Result<Array1<f32>> {
+    /// Embed a single string (prefixed to silence unused warning)
+    pub fn _embed(&self, text: &str) -> Result<Array1<f32>> {
         // First get the tensor embedding
         let tensor_embeddings = self.embed_batch_tensor(&[text])?;
 
@@ -218,57 +218,6 @@ impl Embedder {
     fn normalize_l2(&self, v: &Tensor) -> Result<Tensor> {
         let norm = v.sqr()?.sum_keepdim(1)?.sqrt()?;
         Ok(v.broadcast_div(&norm)?)
-    }
-
-    /// Calculate cosine similarity between two tensors
-    fn tensor_cosine_similarity(&self, a: &Tensor, b: &Tensor) -> Result<f32> {
-        let sum_ab = (a * b)?.sum_all()?.to_scalar::<f32>()?;
-        let sum_a2 = (a * a)?.sum_all()?.to_scalar::<f32>()?;
-        let sum_b2 = (b * b)?.sum_all()?.to_scalar::<f32>()?;
-
-        Ok(sum_ab / (sum_a2 * sum_b2).sqrt())
-    }
-
-    /// Calculate cosine similarity between two embeddings (ndarray version for compatibility)
-    pub fn cosine_similarity(a: ArrayView1<f32>, b: ArrayView1<f32>) -> f32 {
-        let dot_product = a.dot(&b);
-        let norm_a = a.dot(&a).sqrt();
-        let norm_b = b.dot(&b).sqrt();
-
-        if norm_a > 0.0 && norm_b > 0.0 {
-            dot_product / (norm_a * norm_b)
-        } else {
-            0.0
-        }
-    }
-
-    /// Find the most similar strings to a query string
-    pub fn find_similar(
-        &self,
-        query: &str,
-        candidates: &[&str],
-        top_k: usize,
-    ) -> Result<Vec<(usize, f32)>> {
-        // Using tensor operations for better performance
-        let query_embedding = self.embed_batch_tensor(&[query])?;
-        let candidate_embeddings = self.embed_batch_tensor(candidates)?;
-
-        let mut similarities = Vec::with_capacity(candidates.len());
-
-        for i in 0..candidates.len() {
-            let candidate_embedding = candidate_embeddings.get(i)?;
-            let query_embedding_i = query_embedding.get(0)?;
-            let similarity =
-                self.tensor_cosine_similarity(&query_embedding_i, &candidate_embedding)?;
-            similarities.push((i, similarity));
-        }
-
-        // Sort by similarity (descending)
-        similarities.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-
-        // Return top-k results (or all if top_k > candidates.len())
-        let top_k = std::cmp::min(top_k, candidates.len());
-        Ok(similarities.into_iter().take(top_k).collect())
     }
 }
 
