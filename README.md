@@ -1,92 +1,43 @@
-# DfEmbedder
+# DF Embedder
 
-A high-performance Python library with a Rust core for indexing and embedding Apache Arrow compatible DataFrames (like Polars or Pandas) into a searchable Lance vector database.
+DF Embedder allows you to effortlessly turn your DataFrames into fast vector stores in 3 lines of code. 
 
 ## Description
 
-DfEmbedder allows you to effortlessly turn your DataFrames into efficient vector stores. It leverages:
+DF Embedder is a high-performance Python library (with a Rust backend) for indexing and embedding Apache Arrow compatible DataFrames (like Polars or Pandas) into low latency vector databases based on Lance files.
 
 - **Rust:** For blazing-fast, multi-threaded embedding and indexing.
 - **Apache Arrow:** To seamlessly work with data from libraries like Polars, Pandas (via PyArrow), etc.
-- **Static Embeddings:** Uses efficient static models for generating vector representations.
+- **Static Embeddings:** Uses efficient static embedding model for generating text embedding 100X faster.
 - **Lance Format:** For optimized storage and fast vector similarity searches.
 - **PyO3:** To provide a clean and easy-to-use Python API.
-
-## Requirements
-
-- Python (3.8+)
-- PyArrow
-- Polars (or Pandas, for creating DataFrames)
-
-
-*Note: DfEmbedder uses the Lance file format internally. Ensure your environment can handle Lance DB creation if specific filesystem permissions or dependencies are needed.*
-
-## Installation
-
-### Development Setup
-
-1.  Clone this repository
-2.  Create and activate a virtual environment (recommended)
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows: venv\Scripts\activate
-    ```
-3.  Install Python dependencies
-    ```bash
-    pip install maturin polars pyarrow pytest
-    # Add 'pandas' if you intend to use Pandas DataFrames
-    # pip install pandas
-    ```
-
-### Building the Package
-
-This command builds the Rust extension and installs the `dfembed` package into your environment.
-```bash
-maturin develop
-```
 
 ## Usage
 
 ```python
-import polars as pl
+import polars as pl # could also use Pandas or DuckDB
 import pyarrow as pa # Although not directly used, good practice to import
 from dfembed import DfEmbedder
 
-def main():
-    # --- Initialize DfEmbedder ---
-    # Configure database path, vector dimensions, and optional performance params
-    embedder = DfEmbedder(
-        num_threads=8,              # Example: Use 8 threads for embedding
-        write_buffer_size=3500,     # Example: Buffer 3500 embeddings before writing
-        database_name="tmdb_db",    # Path to the Lance database directory
-        vector_dim=1024             # Dimensionality of embedding vectors
-    )
-
-    # --- Load Data ---
+def main():   
     # Example: Load data from a CSV using Polars
-    try:
-        df = pl.read_csv("tmdb.csv")
-    except Exception as e:
-        print(f"Error reading tmdb.csv: {e}")
-        print("Please ensure tmdb.csv exists in the same directory or provide the correct path.")
-        return
-
-    # --- Convert to Arrow Table ---
+    df = pl.read_csv("tmdb.csv")
     # DfEmbedder requires data in PyArrow Table format
     arrow_table = df.to_arrow()
-
-    # --- Index the Data ---
+     # Configure database path, vector dimensions, and optional performance params
+    embedder = DfEmbedder(
+        num_threads=8,              # Example: Use 8 threads for embedding or defaults the cores available
+        write_buffer_size=3500,     # Example: Buffer 3500 embeddings before writing
+        database_name="tmdb_db",    # Path to the Lance database directory            
+    )
     table_name = "tmdb_table" # Name for the table within the Lance database
-    print(f"Indexing data into table '{table_name}' in database '{embedder.database_name}'...")
-    # This process reads the relevant column(s), generates embeddings, and saves to Lance format
+    # This process embeds and indexes all rows, and saves to Lance format
     embedder.index_table(arrow_table, table_name=table_name)
-    print("Indexing complete.")
 
     # --- Find Similar Items ---
     query = "adventures jungle animals"
     k = 10 # Number of similar results to retrieve
     print(f"\nFinding {k} items similar to: '{query}' in table '{table_name}'")
-
     results = embedder.find_similar(query=query, table_name=table_name, k=k)
 
     print("\nSimilar items found:")
@@ -102,15 +53,6 @@ if __name__ == "__main__":
 
 ```
 
-*Note: The specific column used for embedding (e.g., a movie description or plot summary in `tmdb.csv`) is determined by the internal embedding model configuration within the Rust code. Ensure your input data has the column the embedder expects.*
-
-
-## Running Tests
-
-```bash
-# Ensure you are in the root directory where pyproject.toml is located
-pytest python/ # Or adjust path to your tests
-```
 
 
 ## How It Works
