@@ -19,37 +19,21 @@ import polars as pl # could also use Pandas or DuckDB
 import pyarrow as pa # Although not directly used, good practice to import
 from dfembed import DfEmbedder
 
-def main():   
-    # Example: Load data from a CSV using Polars
-    df = pl.read_csv("tmdb.csv")
-    # DfEmbedder requires data in PyArrow Table format
-    arrow_table = df.to_arrow()
-     # Configure database path, vector dimensions, and optional performance params
-    embedder = DfEmbedder(
-        num_threads=8,              # Example: Use 8 threads for embedding or defaults the cores available
-        write_buffer_size=3500,     # Example: Buffer 3500 embeddings before writing
-        database_name="tmdb_db",    # Path to the Lance database directory            
-    )
-    table_name = "tmdb_table" # Name for the table within the Lance database
-    # This process embeds and indexes all rows, and saves to Lance format
-    embedder.index_table(arrow_table, table_name=table_name)
-
-    # --- Find Similar Items ---
-    query = "adventures jungle animals"
-    k = 10 # Number of similar results to retrieve
-    print(f"\nFinding {k} items similar to: '{query}' in table '{table_name}'")
-    results = embedder.find_similar(query=query, table_name=table_name, k=k)
-
-    print("\nSimilar items found:")
-    # The structure of results depends on what find_similar returns (e.g., IDs, text)
-    if results:
-        for i, result in enumerate(results):
-            print(f"{i+1}. {result}")
-    else:
-        print("No similar items found.")
-
-if __name__ == "__main__":
-    main()
+# Load data from a CSV using Polars
+df = pl.read_csv("tmdb.csv")
+# transform to PyArrow Table format
+arrow_table = df.to_arrow()
+# Configure database path, and optional performance params
+embedder = DfEmbedder(
+    num_threads=8,              # Use 8 threads for embedding or defaults to avail num of cores
+    write_buffer_size=3500,     # Buffer 3500 embeddings before writing
+    database_name="tmdb_db",    # Path to the Lance database directory            
+)
+table_name = "tmdb_table" 
+embedder.index_table(arrow_table, table_name=table_name)
+# get 10 most similar items
+query = "adventures jungle animals"
+results = embedder.find_similar(query=query, table_name=table_name, k=10)
 
 ```
 
