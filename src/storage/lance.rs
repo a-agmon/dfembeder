@@ -1,19 +1,24 @@
-use arrow::array::{FixedSizeListArray, StringArray, UInt32Array};
+use arrow::array::{FixedSizeListArray, Float32Array, StringArray};
 use arrow::datatypes::{DataType, Field, Float32Type, Schema};
 use arrow::error::ArrowError;
 use arrow::record_batch::{RecordBatch, RecordBatchIterator};
-use futures::StreamExt;
-use lance::Dataset;
+use futures::TryStreamExt;
+use lance::dataset::Dataset;
 use lance::dataset::{WriteMode, WriteParams};
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
+use tracing::info;
+
+use crate::embedding::static_embeder::Embedder;
 
 pub struct LanceStore {
     schema: Arc<Schema>,
     file_path: String,
     vec_dim: usize,
 }
+
+const VECTOR_COLUMN: &str = "vector";
+const TEXT_COLUMN: &str = "text";
 
 impl LanceStore {
     /// Creates a new LanceStore instance within a specified database directory.
@@ -47,6 +52,53 @@ impl LanceStore {
             file_path: file_path,
             vec_dim: vector_dim,
         }
+    }
+
+    pub async fn find_most_similar(
+        &self,
+        query: &str,
+        k: usize,
+        embedder: &Embedder,
+    ) -> anyhow::Result<Vec<String>> {
+        let query_embedding = embedder.embed_batch_vec(&[query])?;
+        let query_embedding = match query_embedding.first() {
+            Some(embedding) => embedding,
+            None => return Err(anyhow::anyhow!("Embedder returned no vector for the query")),
+        };
+        let db = Dataset::open(&self.file_path).await?;
+
+        let query_embedding_arrow = Float32Array::from(query_embedding.clone());
+
+        // Configure the scanner first
+        let mut scanner = db.scan();
+        scanner.project(&[TEXT_COLUMN])?;
+        scanner.nearest(VECTOR_COLUMN, &query_embedding_arrow, k)?;
+
+        // Convert scanner to stream and collect
+        let results_batches = scanner
+            .try_into_stream()
+            .await? // Get the stream
+            .try_collect::<Vec<_>>() // Collect RecordBatches from the stream
+            .await?;
+
+        info!("Found {} similar results.", results_batches.len());
+        let mut found_texts: Vec<String> = Vec::new();
+
+        for batch in results_batches {
+            // Iterate directly over collected Vec<RecordBatch>
+            // info!("Batch: {:?}", batch);
+            // Example: Access the 'text' column (assuming it's the first projected column)
+            if let Some(text_col) = batch.column(0).as_any().downcast_ref::<StringArray>() {
+                for text_val_opt in text_col.iter() {
+                    if let Some(text_val) = text_val_opt {
+                        info!("  Found similar text: {}", text_val);
+                        found_texts.push(text_val.to_string());
+                    }
+                }
+            }
+        }
+
+        Ok(found_texts)
     }
 
     pub async fn add_vectors(
@@ -108,7 +160,9 @@ impl LanceStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::embedding::static_embeder::Embedder;
     use std::fs;
+    use std::path::Path;
 
     #[tokio::test]
     async fn test_add_vectors() {
@@ -197,5 +251,96 @@ mod tests {
         // as PathBuf handles the OS-specific logic.
 
         // Temp directory is automatically cleaned up when `temp_dir_os` goes out of scope
+    }
+
+    #[tokio::test]
+    async fn test_find_most_similar() {
+        // Define test database and table names
+        let test_db = "test_db";
+        let test_table_name = "test_table";
+        let test_lance_file = format!("{}.lance", test_table_name);
+        let _expected_path = Path::new(test_db).join(&test_lance_file);
+
+        // Clean up any existing test directory
+        if Path::new(test_db).exists() {
+            fs::remove_dir_all(test_db).unwrap();
+        }
+        // Create the database directory for the test
+        fs::create_dir_all(test_db).expect("Failed to create test database directory");
+
+        // Initialize the real Embedder
+        let embedder = Embedder::new().expect("Failed to create real Embedder for test");
+        let vector_dim = 1024;
+
+        // Define test data
+        let filenames = ["doc1.txt", "doc2.txt", "doc3.txt", "doc4.txt"];
+        let texts = [
+            "The quick brown fox jumps over the lazy dog.",
+            "Exploring the vast universe and its mysteries.",
+            "A delicious recipe for homemade apple pie.",
+            "Cats and dogs are popular domestic animals.",
+        ];
+
+        // Generate embeddings using the real Embedder
+        let vectors = embedder
+            .embed_batch_vec(&texts)
+            .expect("Failed to generate embeddings for test data");
+        assert_eq!(
+            vectors.len(),
+            texts.len(),
+            "Number of vectors should match number of texts"
+        );
+        assert!(
+            vectors.iter().all(|v| v.len() == vector_dim),
+            "All vector dimensions should match embedder dimension"
+        );
+
+        // Initialize LanceStore with the correct dimension
+        let store = LanceStore::new_with_database(test_db, test_table_name, vector_dim);
+
+        // Add vectors generated by the real embedder
+        store
+            .add_vectors(&filenames, &texts, vectors)
+            .await
+            .expect("Failed to add real vectors for similarity test");
+
+        // Define the query text - semantically similar to the 4th text
+        let query_text = "Information about pets like felines and canines";
+        let k = 1;
+
+        // Use the actual find_most_similar function
+        let found_texts_result = store.find_most_similar(query_text, k, &embedder).await;
+
+        // Verify the results
+        assert!(
+            found_texts_result.is_ok(),
+            "find_most_similar failed: {:?}",
+            found_texts_result.err()
+        );
+        let found_texts = found_texts_result.unwrap();
+
+        println!("Query: '{}'", query_text);
+        println!("Found texts: {:?}", found_texts);
+
+        assert_eq!(
+            found_texts.len(),
+            k,
+            "Expected {} result(s), found {}",
+            k,
+            found_texts.len()
+        );
+        assert!(
+            found_texts.contains(&texts[3].to_string()),
+            "Expected '{}' to be the most similar, but found {:?}",
+            texts[3],
+            found_texts
+        );
+
+        // Clean up the test directory
+        fs::remove_dir_all(test_db).unwrap();
+        assert!(
+            !Path::new(test_db).exists(),
+            "Failed to clean up test directory"
+        );
     }
 }

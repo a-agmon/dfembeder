@@ -1,12 +1,11 @@
+use arrow::array::RecordBatch;
+use arrow::datatypes::Schema;
+
 use std::sync::Arc;
 
-use arrow::datatypes::Schema;
-use arrow::record_batch::RecordBatch;
 use crossbeam::channel;
 use crossbeam::channel::Receiver;
 use crossbeam::channel::Sender;
-use lance::dataset::fragment::write;
-use rayon::ThreadPool;
 use tokio::runtime::Runtime;
 use tracing::error;
 use tracing::info;

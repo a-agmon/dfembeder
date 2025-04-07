@@ -1,5 +1,4 @@
 use arrow::datatypes::SchemaRef;
-use arrow::record_batch::RecordBatch;
 use pyo3::Bound;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyCapsule};
@@ -49,25 +48,5 @@ pub fn print_schema(schema: &SchemaRef) {
             dt => dt, // Keep as is for other types
         };
         println!("- {}: {}", field.name(), data_type_str);
-    }
-}
-
-/// Prints information about record batches
-pub fn print_record_batches(record_batches: &[RecordBatch], schema: &SchemaRef) {
-    println!("\nNumber of record batches: {}", record_batches.len());
-    println!("\nProcessing Record Batches:");
-
-    // Iterate through the batches
-    for (i, batch) in record_batches.iter().enumerate() {
-        println!("\n--- Batch {} ---", i + 1);
-        println!("Row count: {}", batch.num_rows());
-
-        // Process each column in the batch
-        for (col_idx, column) in batch.columns().iter().enumerate() {
-            let field = schema.field(col_idx);
-            println!("  Column '{}': ", field.name());
-            println!("    Length: {}", column.len());
-            println!("    Null count: {}", column.null_count());
-        }
     }
 }

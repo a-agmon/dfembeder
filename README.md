@@ -1,86 +1,56 @@
-# Arrow Analyzer
+# DF Embedder
 
-A Python library built with Rust and PyO3 that analyzes Apache Arrow tables.
+DF Embedder allows you to effortlessly turn your DataFrames into fast vector stores in 3 lines of code. 
 
 ## Description
 
-Arrow Analyzer provides functionality to analyze Arrow tables, particularly those generated from Polars DataFrames. It demonstrates how to:
+DF Embedder is a high-performance Python library (with a Rust backend) for indexing and embedding Apache Arrow compatible DataFrames (like Polars or Pandas) into low latency vector databases based on Lance files.
 
-- Use PyO3 to create Python bindings for Rust code
-- Process Apache Arrow tables in Rust
-- Integrate with Polars DataFrames via Arrow
-
-## Requirements
-
-- Rust (1.56+)
-- Python (3.8+)
-- Maturin (1.0+)
-- Polars
-- PyArrow
-
-## Installation
-
-### Development Setup
-
-1. Clone this repository
-2. Create and activate a virtual environment (recommended)
-   ```
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-3. Install dependencies
-   ```
-   pip install maturin polars pyarrow pytest
-   ```
-
-### Building the Package
-
-```bash
-cd arrow_analyzer
-maturin develop
-```
-
-This will build the Rust library and install it into your current Python environment.
+- **Rust:** For blazing-fast, multi-threaded embedding and indexing.
+- **Apache Arrow:** To seamlessly work with data from libraries like Polars, Pandas (via PyArrow), etc.
+- **Static Embeddings:** Uses efficient static embedding model for generating text embedding 100X faster.
+- **Lance Format:** For optimized storage and fast vector similarity searches.
+- **PyO3:** To provide a clean and easy-to-use Python API.
 
 ## Usage
 
 ```python
-import polars as pl
-from arrow_analyzer import analyze_arrow_table
+import polars as pl # could also use Pandas or DuckDB
+import pyarrow as pa # Although not directly used, good practice to import
+from dfembed import DfEmbedder
 
-# Load data with Polars
-df_lazy = pl.scan_csv("your_data.csv")
-df_reg = df_lazy.collect()
+# Load data from a CSV using Polars
+df = pl.read_csv("tmdb.csv")
+# transform to PyArrow Table format
+arrow_table = df.to_arrow()
+# Configure database path, and optional performance params
+embedder = DfEmbedder(
+    num_threads=8,              # Use 8 threads for embedding or defaults to avail num of cores
+    write_buffer_size=3500,     # Buffer 3500 embeddings before writing
+    database_name="tmdb_db",    # Path to the Lance database directory            
+)
+table_name = "tmdb_table" 
+embedder.index_table(arrow_table, table_name=table_name)
+# get 10 most similar items
+query = "adventures jungle animals"
+results = embedder.find_similar(query=query, table_name=table_name, k=10)
 
-# Convert to Arrow table
-df_arr = df_reg.to_arrow()
-
-# Analyze the Arrow table
-analyze_arrow_table(df_arr)
 ```
 
-## Running Tests
 
-```bash
-cd arrow_analyzer
-pytest python_tests/
-```
-
-Or run the test script directly for more verbose output:
-
-```bash
-cd arrow_analyzer
-python python_tests/test_analyzer.py
-```
 
 ## How It Works
 
-1. The library uses PyO3 to create Python bindings for Rust code
-2. It uses pyo3-arrow to handle Arrow data between Python and Rust
-3. When `analyze_arrow_table` is called, it:
-   - Converts the PyArrow table to a Rust Arrow table
-   - Prints information about the schema
-   - Counts and displays information about the record batches
+1.  The `DfEmbedder` Python class acts as a user-friendly wrapper.
+2.  It initializes and manages an instance of the `DfEmbedderRust` struct, implemented in Rust.
+3.  When `index_table` is called with a PyArrow `Table`:
+    *   The Rust backend receives the Arrow data.
+    *   It uses a static embedding model (configured internally) to generate vector embeddings for the specified text data, potentially using multiple threads for speed.
+    *   The embeddings, along with original data, are written efficiently to a Lance dataset within the specified database directory and table name.
+4.  When `find_similar` is called:
+    *   The query string is embedded using the same static model.
+    *   The Rust backend uses Lance's optimized search capabilities to find the `k` nearest neighbors to the query vector within the specified table.
+    *   The results (e.g., identifiers or relevant data) are returned to Python.
 
 ## License
 
