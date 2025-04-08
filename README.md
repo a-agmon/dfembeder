@@ -2,6 +2,12 @@
 
 DF Embedder allows you to effortlessly turn your DataFrames into fast vector stores in 3 lines of code. 
 
+```python
+df = pl.read_csv("tmdb.csv")
+arrow_table = df.to_arrow()
+embedder = DfEmbedder(database_name="tmdb_db")
+```
+
 ## Description
 
 DF Embedder is a high-performance Python library (with a Rust backend) for indexing and embedding Apache Arrow compatible DataFrames (like Polars or Pandas) into low latency vector databases based on Lance files.
@@ -11,6 +17,8 @@ DF Embedder is a high-performance Python library (with a Rust backend) for index
 - **Static Embeddings:** Uses efficient static embedding model for generating text embedding 100X faster.
 - **Lance Format:** For optimized storage and fast vector similarity searches.
 - **PyO3:** To provide a clean and easy-to-use Python API.
+
+How fast is DF Embedder? benchamrks are often misleading and users should run their own analysis. To give a general idea, I was able to index about 1.2M rows from the TMDB movie dataset in about 120 seconds. Thats reading, embedding, indexing and writing more than 10K rows per second. And there are still ways to improve its performance.  
 
 ## Usage
 
