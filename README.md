@@ -18,7 +18,7 @@ DF Embedder is a high-performance Python library (with a Rust backend) for index
 - **Lance Format:** For optimized storage and fast vector similarity searches.
 - **PyO3:** To provide a clean and easy-to-use Python API.
 
-How fast is DF Embedder? benchamrks are often misleading and users should run their own analysis. To give a general idea, I was able to index about 1.2M rows from the TMDB movie dataset in about 120 seconds. Thats reading, embedding, indexing and writing more than 10K rows per second. And there are still ways to improve its performance.  
+How fast is DF Embedder? benchamrks are often misleading and users should run their own analysis. To give a general idea, I was able to index about 1.2M rows from the TMDB movie dataset in about 100 seconds, using a machine with 10 CPU cores. Thats reading, embedding, indexing and writing more than 10K rows per second. And there are still ways to improve its performance by further tunning its params. 
 
 ## Usage
 
