@@ -50,6 +50,3 @@ tempfile = "3"
 [dependencies.ring]
 version = "0.17.5"
 features = ["std"]
-
-[target.'cfg(target_arch = "aarch64")'.dependencies]
-ring = { version = "0.17.5", features = ["std"] }
