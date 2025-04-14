@@ -42,6 +42,7 @@ os = "0.1.0"
 aws-lc-rs = { version = "=1.0.2", features = ["bindgen"] }
 rustls = { version = "0.21.7", features = ["dangerous_configuration"] }
 rustls-native-certs = "0.6.3"
+rustls-webpki = "0.100.1"
 
 [dev-dependencies]
 tempfile = "3"
