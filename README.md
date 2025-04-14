@@ -63,3 +63,43 @@ results = embedder.find_similar(query=query, table_name=table_name, k=10)
 ## License
 
 MIT
+
+## GitHub Actions CI/CD
+
+This project uses GitHub Actions for continuous integration and deployment, automatically building wheels for multiple platforms and Python versions.
+
+### Automated Builds
+
+The CI/CD pipeline automatically:
+
+1. Builds wheels for:
+   - Linux (manylinux2014)
+   - macOS (Intel x86_64 and Apple Silicon ARM64)
+   - Windows
+   - Python versions 3.8, 3.9, 3.10, 3.11, and 3.12
+
+2. Tests the built wheels on each platform to ensure they work correctly
+
+3. Publishes to PyPI when a new tag is pushed (format: `v*`, e.g., `v0.1.2`)
+
+### Workflow Files
+
+- `.github/workflows/build.yml`: Builds wheels for all platforms and Python versions
+- `.github/workflows/test.yml`: Tests the built wheels to ensure they work correctly
+
+### Releasing a New Version
+
+To release a new version:
+
+1. Update the version in `Cargo.toml` and `pyproject.toml`
+2. Commit and push your changes
+3. Create and push a new tag with the format `v{version}` (e.g., `v0.1.2`):
+   ```bash
+   git tag v0.1.2
+   git push origin v0.1.2
+   ```
+4. The GitHub Actions workflow will automatically build wheels and publish them to PyPI
+
+### Manual Builds
+
+You can also manually trigger the build workflow from the GitHub Actions tab in your repository.
