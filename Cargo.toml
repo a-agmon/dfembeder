@@ -24,7 +24,7 @@ anyhow = "1.0.97"
 candle = { version = "0.8.4", package = "candle-core" }
 candle-nn = "0.8.4"
 candle-transformers = "0.8.4"
-hf-hub = "0.4.2"
+hf-hub = { version = "0.4.2", default-features = false, features = ["tokio", "reqwest-rustls-tls"] }
 tokenizers = "0.21.1"
 rayon = "1.10.0"
 num_cpus = "1.16.0"
