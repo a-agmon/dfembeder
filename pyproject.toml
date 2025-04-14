@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "dfembed"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Python library using Rust and PyO3 to index Arrow tables"
 authors = [{ name = "Alon Agmon", email = "alon.agmon@gmail.com" }]
 requires-python = ">=3.8"
