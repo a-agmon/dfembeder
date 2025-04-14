@@ -1,0 +1,126 @@
+name: Test Wheels
+
+on:
+  workflow_run:
+    workflows: ["Build and Release"]
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test wheel on ${{ matrix.os }} with Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ['3.10']  # Using a single Python version for testing to save time
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      # Set up git config for private dependencies
+      - name: Set up git for private dependencies
+        run: |
+          git config --global url."https://github.com/".insteadOf "git://github.com/"
+        shell: bash
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # Download the wheels built by the build workflow
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-${{ matrix.os }}-${{ matrix.python }}*
+          path: dist
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          merge-multiple: true
+        if: github.event_name != 'workflow_dispatch'
+
+      # For manual runs, use the latest build artifacts
+      - name: Download latest wheels (manual run)
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: build.yml
+          name: wheels-${{ matrix.os }}-${{ matrix.python }}*
+          path: dist
+          search_artifacts: true
+          if_no_artifact_found: warn
+        if: github.event_name == 'workflow_dispatch'
+
+      - name: Display downloaded wheels
+        run: ls -la dist/
+        shell: bash
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest polars pyarrow
+        shell: bash
+
+      # Install the wheel
+      - name: Install wheel
+        run: |
+          python -m pip install --find-links=dist dfembed
+        shell: bash
+
+      # Prepare test data
+      - name: Prepare test data
+        run: |
+          # Create a simple test CSV if the test data doesn't exist
+          mkdir -p test-data
+          if [ ! -f "test-data/tmdb.csv" ]; then
+            echo "id,title,overview" > test-data/tmdb.csv
+            echo "1,Test Movie 1,This is a test movie about adventure" >> test-data/tmdb.csv
+            echo "2,Test Movie 2,Another test movie with action" >> test-data/tmdb.csv
+            echo "278927,Jungle Adventure,A thrilling adventure with animals in the jungle" >> test-data/tmdb.csv
+            echo "3,Test Movie 3,Drama about family life" >> test-data/tmdb.csv
+          fi
+        shell: bash
+
+      # Run a simple import test
+      - name: Test import
+        run: |
+          python -c "from dfembed import DfEmbedder; print('Import successful')"
+        shell: bash
+
+      # Run a simplified version of the integration test
+      - name: Run simplified test
+        run: |
+          python -c "
+          import polars as pl
+          import pyarrow as pa
+          import os
+          from dfembed import DfEmbedder
+          
+          # Load test data
+          df = pl.read_csv('test-data/tmdb.csv')
+          print(f'Loaded dataframe with shape: {df.shape}')
+          
+          # Convert to Arrow table
+          arrow_table = df.to_arrow()
+          
+          # Initialize embedder
+          db_dir = 'test-data/test_db'
+          os.makedirs(db_dir, exist_ok=True)
+          embedder = DfEmbedder(database_name=db_dir)
+          
+          # Index table
+          embedder.index_table(arrow_table, table_name='test_table')
+          print('Table indexed successfully')
+          
+          # Test search
+          results = embedder.find_similar('adventure jungle animals', 'test_table', 3)
+          print(f'Search results: {results}')
+          print('Test completed successfully')
+          "
+        shell: bash
