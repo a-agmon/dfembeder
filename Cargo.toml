@@ -24,7 +24,7 @@ anyhow = "1.0.97"
 candle = { version = "0.8.4", package = "candle-core" }
 candle-nn = "0.8.4"
 candle-transformers = "0.8.4"
-hf-hub = { version = "0.4.2", default-features = false, features = ["tokio", "reqwest-rustls-tls"] }
+hf-hub = "0.4.2"
 tokenizers = "0.21.1"
 rayon = "1.10.0"
 num_cpus = "1.16.0"
@@ -42,6 +42,7 @@ os = "0.1.0"
 aws-lc-rs = { version = "=1.0.2", features = ["bindgen"] }
 rustls = { version = "0.21.7", features = ["dangerous_configuration"] }
 rustls-native-certs = "0.6.3"
+openssl = { version = "0.10", features = ["vendored"] }
 
 [dev-dependencies]
 tempfile = "3"
