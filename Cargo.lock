@@ -2049,6 +2049,8 @@ dependencies = [
  "pyo3-arrow",
  "rayon",
  "reqwest",
+ "ring",
+ "rustls 0.21.12",
  "safetensors 0.5.3",
  "serde_json",
  "tempfile",
