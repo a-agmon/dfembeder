@@ -47,7 +47,13 @@ jobs:
           sudo apt-get install -y llvm-dev libclang-dev clang
       - name: Install Perl dependencies for OpenSSL
         run: |
-          sudo apt-get install -y libperl-dev perl-modules libio-socket-ssl-perl libmodule-install-perl libipc-cmd-perl
+          sudo apt-get update
+          sudo apt-get install -y libperl-dev perl cpanminus
+          sudo cpanm --notest IPC::Cmd
+      - name: Prepare OpenSSL environment
+        run: |
+          echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+          echo "OPENSSL_NO_VENDOR=1" >> $GITHUB_ENV
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -82,11 +88,16 @@ jobs:
       - name: Install Perl dependencies for OpenSSL
         run: |
           if command -v apk &> /dev/null; then
-            apk add perl perl-ipc-cmd
+            apk add perl perl-ipc-run
           else
             sudo apt-get update
-            sudo apt-get install -y libperl-dev perl-modules libio-socket-ssl-perl libmodule-install-perl libipc-cmd-perl
+            sudo apt-get install -y libperl-dev perl cpanminus
+            sudo cpanm --notest IPC::Cmd
           fi
+      - name: Prepare OpenSSL environment
+        run: |
+          echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+          echo "OPENSSL_NO_VENDOR=1" >> $GITHUB_ENV
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
