@@ -45,6 +45,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y llvm-dev libclang-dev clang
+      - name: Install Perl dependencies for OpenSSL
+        run: |
+          sudo apt-get install -y libperl-dev perl-modules libio-socket-ssl-perl libmodule-install-perl libipc-cmd-perl
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -76,6 +79,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
+      - name: Install Perl dependencies for OpenSSL
+        run: |
+          if command -v apk &> /dev/null; then
+            apk add perl perl-ipc-cmd
+          else
+            sudo apt-get update
+            sudo apt-get install -y libperl-dev perl-modules libio-socket-ssl-perl libmodule-install-perl libipc-cmd-perl
+          fi
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
