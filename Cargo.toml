@@ -39,6 +39,8 @@ lance-index = { git = "https://github.com/a-agmon/lance", branch = "main" }
 chrono = "0.4.40"
 crossbeam = "0.8.4"
 os = "0.1.0"
+
+# all this mess is just to support multi build
 rustls = { version = "0.21.7", features = ["dangerous_configuration"] }
 rustls-native-certs = "0.6.3"
 openssl = { version = "0.10", features = ["vendored"] }
