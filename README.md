@@ -1,16 +1,34 @@
 # DF Embedder
 
-DF Embedder allows you to effortlessly turn your DataFrames into fast vector stores in 3 lines of code. 
+DF Embedder is a high-performance Python library (with a Rust backend) that embeds, indexes and turns your dataframes into fast vector stores (based on [Lance format](https://github.com/lancedb/lance)) in a few lines of code.
 
 ```python
+# read a dataset using polars or pandas
 df = pl.read_csv("tmdb.csv")
+# turn into an arrow dataset
 arrow_table = df.to_arrow()
 embedder = DfEmbedder(database_name="tmdb_db")
+# embed and index the dataframe to a lance table
+embedder.index_table(arrow_table, table_name="films_table")
+# run similarities queries
+similar_movies = embedder.find_similar("adventures jungle animals", "films_table", 10)
 ```
 
-## Description
+Indexing a dataframe using DfEmbedder starts by representing each row in the dataframe as a string that follows the format: `col0_name is col0_value; col1_name is col1_value`. Next, all the textual representations are embedded using a [static embedding model](https://huggingface.co/blog/static-embeddings) (a method that can generate embeddings on CPU much faster than common frameworks do on GPU with very little loss of quality). Finally, it writes data as a table in Lance format.
 
-DF Embedder is a high-performance Python library (with a Rust backend) for indexing and embedding Apache Arrow compatible DataFrames (like Polars or Pandas) into low latency vector databases based on Lance files.
+The vector data can then be accessed using `DfEmbedder`'s `find_similar` method, using `LanceDB` 
+
+```python
+import lancedb
+db = lancedb.connect("tmdb_db")
+tbl = db.open_table("films_table")
+```
+
+or as a Llamaindex `VectorStore`
+
+*Note that DfEmbedder is an early version and work in progress. Would appriciate any feedback or comment.*
+
+## Main Features
 
 - **Rust:** For blazing-fast, multi-threaded embedding and indexing.
 - **Apache Arrow:** To seamlessly work with data from libraries like Polars, Pandas (via PyArrow), etc.
@@ -18,7 +36,7 @@ DF Embedder is a high-performance Python library (with a Rust backend) for index
 - **Lance Format:** For optimized storage and fast vector similarity searches.
 - **PyO3:** To provide a clean and easy-to-use Python API.
 
-How fast is DF Embedder? benchamrks are often misleading and users should run their own analysis. To give a general idea, I was able to index about 1.2M rows from the TMDB movie dataset in about 100 seconds, using a machine with 10 CPU cores. Thats reading, embedding, indexing and writing more than 10K rows per second. And there are still ways to improve its performance by further tunning its params. 
+How fast is DF Embedder? benchamrks are often misleading and users should run their own analysis. To give a general idea, I was able to index about 1.2M rows from the TMDB movie dataset in about 100 seconds, using a machine with 10 CPU cores. Thats reading, embedding, indexing and writing more than 10K rows per second. And there are still ways to improve its performance by further tunning its params.
 
 ## Usage
 
@@ -35,7 +53,7 @@ arrow_table = df.to_arrow()
 embedder = DfEmbedder(
     num_threads=8,              # Use 8 threads for embedding or defaults to avail num of cores
     write_buffer_size=3500,     # Buffer 3500 embeddings before writing
-    database_name="tmdb_db",    # Path to the Lance database directory            
+    database_name="tmdb_db",    # Path to the Lance database directory          
 )
 table_name = "tmdb_table" 
 embedder.index_table(arrow_table, table_name=table_name)
@@ -45,20 +63,18 @@ results = embedder.find_similar(query=query, table_name=table_name, k=10)
 
 ```
 
-
-
 ## How It Works
 
-1.  The `DfEmbedder` Python class acts as a user-friendly wrapper.
-2.  It initializes and manages an instance of the `DfEmbedderRust` struct, implemented in Rust.
-3.  When `index_table` is called with a PyArrow `Table`:
-    *   The Rust backend receives the Arrow data.
-    *   It uses a static embedding model (configured internally) to generate vector embeddings for the specified text data, potentially using multiple threads for speed.
-    *   The embeddings, along with original data, are written efficiently to a Lance dataset within the specified database directory and table name.
-4.  When `find_similar` is called:
-    *   The query string is embedded using the same static model.
-    *   The Rust backend uses Lance's optimized search capabilities to find the `k` nearest neighbors to the query vector within the specified table.
-    *   The results (e.g., identifiers or relevant data) are returned to Python.
+1. The `DfEmbedder` Python class acts as a user-friendly wrapper.
+2. It initializes and manages an instance of the `DfEmbedderRust` struct, implemented in Rust.
+3. When `index_table` is called with a PyArrow `Table`:
+   * The Rust backend receives the Arrow data.
+   * It uses a static embedding model (configured internally) to generate vector embeddings for the specified text data, potentially using multiple threads for speed.
+   * The embeddings, along with original data, are written efficiently to a Lance dataset within the specified database directory and table name.
+4. When `find_similar` is called:
+   * The query string is embedded using the same static model.
+   * The Rust backend uses Lance's optimized search capabilities to find the `k` nearest neighbors to the query vector within the specified table.
+   * The results (e.g., identifiers or relevant data) are returned to Python.
 
 ## License
 
@@ -73,13 +89,12 @@ This project uses GitHub Actions for continuous integration and deployment, auto
 The CI/CD pipeline automatically:
 
 1. Builds wheels for:
+
    - Linux (manylinux2014)
    - macOS (Intel x86_64 and Apple Silicon ARM64)
    - Windows
    - Python versions 3.8, 3.9, 3.10, 3.11, and 3.12
-
 2. Tests the built wheels on each platform to ensure they work correctly
-
 3. Publishes to PyPI when a new tag is pushed (format: `v*`, e.g., `v0.1.2`)
 
 ### Workflow Files

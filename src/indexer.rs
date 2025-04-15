@@ -32,28 +32,14 @@ impl Indexer {
             schema,
         }
     }
-    /// Runs the indexing pipeline, processing batches of text data through embedding and storage.
-    ///
-    /// This function orchestrates the following workflow:
+
+    /// This function orchestrates the main workflow:
     /// 1. Transforms Arrow record batches into text chunks
-    /// 2. Spawns multiple embedding worker threads that:
+    /// 2. Spawns  embedding worker threads that:
     ///    - Receive text chunks from a channel
-    ///    - Generate embeddings using the embedding model
+    ///    - Generate embeddings using the static embedding model
     ///    - Send results to a writer channel
     /// 3. Runs a writer thread that stores the embeddings and metadata in a Lance database
-    ///
-    /// The pipeline uses channels for communication between stages and a thread pool
-    /// for parallel embedding processing.
-    ///
-    /// # Returns
-    /// - `Ok(())` if indexing completes successfully
-    /// - `Err` if there are any errors during processing
-    ///
-    /// # Errors
-    /// This function can error if:
-    /// - There are issues with the embedding model
-    /// - The Lance storage operations fail
-    /// - Channel communication breaks down
     pub fn run(
         &self,
         num_workers: usize,
@@ -63,17 +49,18 @@ impl Indexer {
         table_name: &str,
         vector_dim: usize,
     ) -> anyhow::Result<()> {
-        // Initialize Tokio runtime for the writer thread
         info!(
             "Starting indexer with {} workers and embedding chunk size {} and write buffer size {}",
             num_workers, embedding_chunk_size, write_buffer_size
         );
+        // Initialize Tokio runtime for the writer thread
         let rt = Runtime::new()?;
         let threadpool = rayon::ThreadPoolBuilder::new().build().unwrap();
         let (send_to_embedder, receive_from_embedder) = channel::unbounded();
         let (send_to_writer, receive_from_writer) = channel::unbounded();
         let store = LanceStore::new_with_database(database_name, table_name, vector_dim);
 
+        // transform the batches to text chunks and send them to the embedder
         if let Err(e) = transform_batches(&self.batches, &self.schema, send_to_embedder.clone()) {
             error!("Error transforming batches: {}", e);
         }
@@ -88,7 +75,7 @@ impl Indexer {
                 info!("Starting embedding thread id {:?}", thread_id);
                 let embed_model_clone = Embedder::new().unwrap();
                 info!("Created embedder for thread id {:?}", thread_id);
-                process_records(
+                embed_text_chunks(
                     receive_from_embedder,
                     send_to_writer_clone,
                     embedding_chunk_size,
@@ -175,11 +162,13 @@ fn transform_batches(
             error!("Error sending batch to embedder: {}", e);
         }
     }
+    // this will be dropped anyways due to scope but adding this to be explicit
+    drop(send_to_embedder);
     Ok(())
 }
 
 /// this method will continously receive records from the embedder, embed and then send the embeddings to the writer
-fn process_records(
+fn embed_text_chunks(
     receive_from_embedder: Receiver<Vec<String>>,
     send_to_writer: Sender<EmbeddingBatch>,
     embedding_chunk_size: usize,
