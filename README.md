@@ -14,7 +14,7 @@ embedder.index_table(arrow_table, table_name="films_table")
 similar_movies = embedder.find_similar("adventures jungle animals", "films_table", 10)
 ```
 
-*DfEmbedder is an early version and work in progress. Feedback and comments will be highly appriciated.*
+*DfEmbedder is still an early version and work in progress. Feedback and comments will be highly appriciated.*
 
 ## Main Features
 
@@ -26,7 +26,7 @@ similar_movies = embedder.find_similar("adventures jungle animals", "films_table
 
 How fast is DF Embedder? benchamrks are often misleading and users should run their own analysis. To give a general idea, I was able to index about 1.2M rows from the TMDB movie dataset in about 100 seconds, using a machine with 10 CPU cores. Thats reading, embedding, indexing and writing more than 10K rows per second. And there are still ways to improve its performance by further tunning its params.
 
-## How does DF Embedder work?
+## How It Works
 
 Indexing a dataframe using DfEmbedder starts by representing each row in the dataframe as a string that follows the format: `col0_name is col0_value; col1_name is col1_value`. Next, all strings are embedded using a [static embedding model](https://huggingface.co/blog/static-embeddings) (an embedding method that can generate embedding on CPU in blazing speed with very little loss of quality). Finally, it writes data as a table in Lance format.
 
@@ -45,7 +45,7 @@ vector = embedder.embed_string(text)
 tbl.search(vector).limit(10).to_list()
 ```
 
-3. You can use its Llamaindex `VectorStore` interface
+3. You can use its LlamaIndex `VectorStore` interface
 
 ```python
 from dfembed import DfEmbedder, DfEmbedVectorStore
@@ -62,6 +62,22 @@ query_engine = index.as_query_engine(similarity_top_k=5, llm=llm)
 
 ## Usage
 
+
+### Constructor Parameters
+
+The `DfEmbedder` constructor accepts the following parameters:
+
+- `num_threads` (default: CPU count): Number of parallel worker threads used for embedding.
+  Setting this to the number of available CPU cores typically gives the best performance.
+- `embedding_chunk_size` (default: 500): Number of records to process in each embedding batch.
+  Larger values may improve throughput but require more memory.
+- `write_buffer_size` (default: 2000): Number of embeddings to buffer before writing to storage.
+  Increasing this reduces the number of write operations, potentially improving performance for large datasets.
+- `database_name` (default: "./lance_db"): Path to the Lance database directory where tables will be stored.
+- `table_name` (default: "embeddings"): Default name for tables created in the database.
+  Can be overridden in `index_table()`.
+- `vector_dim` (default: 1024): Dimensionality of the embedding vectors produced by the static embedder. *Please keep it on default for this version*
+
 ```python
 import polars as pl # could also use Pandas or DuckDB
 import pyarrow as pa # Although not directly used, good practice to import
@@ -75,7 +91,7 @@ arrow_table = df.to_arrow()
 embedder = DfEmbedder(
     num_threads=8,              # Use 8 threads for embedding or defaults to avail num of cores
     write_buffer_size=3500,     # Buffer 3500 embeddings before writing
-    database_name="tmdb_db",    # Path to the Lance database directory          
+    database_name="tmdb_db",    # Path to the Lance database directory        
 )
 table_name = "tmdb_table" 
 embedder.index_table(arrow_table, table_name=table_name)
@@ -85,44 +101,36 @@ results = embedder.find_similar(query=query, table_name=table_name, k=10)
 
 ```
 
-## How It Works
 
-1. The `DfEmbedder` Python class acts as a user-friendly wrapper.
-2. It initializes and manages an instance of the `DfEmbedderRust` struct, implemented in Rust.
-3. When `index_table` is called with a PyArrow `Table`:
-   * The Rust backend receives the Arrow data.
-   * It uses a static embedding model (configured internally) to generate vector embeddings for the specified text data, potentially using multiple threads for speed.
-   * The embeddings, along with original data, are written efficiently to a Lance dataset within the specified database directory and table name.
-4. When `find_similar` is called:
-   * The query string is embedded using the same static model.
-   * The Rust backend uses Lance's optimized search capabilities to find the `k` nearest neighbors to the query vector within the specified table.
-   * The results (e.g., identifiers or relevant data) are returned to Python.
+### Core Methods
+
+- `index_table(table, table_name=None)`: Embeds and indexes an Arrow table.
+
+  - `table`: A PyArrow Table object containing the data to index.
+  - `table_name`: Name for the created Lance table. If None, uses the default name from the constructor.
+- `find_similar(query, table_name, k)`: Performs semantic search for similar items.
+
+  - `query`: String query to search for.
+  - `table_name`: Name of the Lance table to search in.
+  - `k`: Number of results to return.
+  - Returns a list of the k most similar text records.
+- `embed_string(text)`: Directly access the static embedder to encode a single string.
+
+  - `text`: String to embed.
+  - Returns a vector of floats (the embedding).
+
+### Performance Tips
+
+- For large datasets, increase `write_buffer_size` to reduce write operations.
+- Adjust `embedding_chunk_size` based on your available memory and dataset characteristics.
+- The `num_threads` parameter should typically match your CPU core count for optimal performance.
+- For production use, consider using a fast SSD for the database storage location.
 
 ## License
 
 MIT
 
-## GitHub Actions CI/CD
-
-This project uses GitHub Actions for continuous integration and deployment, automatically building wheels for multiple platforms and Python versions.
-
-### Automated Builds
-
-The CI/CD pipeline automatically:
-
-1. Builds wheels for:
-
-   - Linux (manylinux2014)
-   - macOS (Intel x86_64 and Apple Silicon ARM64)
-   - Windows
-   - Python versions 3.8, 3.9, 3.10, 3.11, and 3.12
-2. Tests the built wheels on each platform to ensure they work correctly
-3. Publishes to PyPI when a new tag is pushed (format: `v*`, e.g., `v0.1.2`)
-
-### Workflow Files
-
-- `.github/workflows/build.yml`: Builds wheels for all platforms and Python versions
-- `.github/workflows/test.yml`: Tests the built wheels to ensure they work correctly
+## GitHub Actions CI/CD (WIP)
 
 ### Releasing a New Version
 
