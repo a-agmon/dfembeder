@@ -4,8 +4,8 @@ build-backend = "maturin"
 
 [project]
 name = "dfembed"
-version = "0.1.1"
-description = "A Python library using Rust and PyO3 to index Arrow tables"
+version = "0.1.2"
+description = "A Python library that embeds and indexes Arrow-based dataframes"
 authors = [{ name = "Alon Agmon", email = "alon.agmon@gmail.com" }]
 requires-python = ">=3.8"
 dependencies = ["polars>=0.18.0", "pyarrow>=11.0.0"]

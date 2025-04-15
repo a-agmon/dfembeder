@@ -5,6 +5,7 @@ import shutil
 import os
 import pathlib
 import pytest
+# run with `pytest -s -v tests/test_integration.py`
 # Assuming DfEmbedder is importable from the 'dfembed' package/module
 # Adjust the import below if your structure is different
 # from dfembed import DfEmbedder # Moved inside the test function

@@ -5,6 +5,7 @@ use arrow::record_batch::{RecordBatch, RecordBatchIterator};
 use futures::TryStreamExt;
 use lance::dataset::Dataset;
 use lance::dataset::{WriteMode, WriteParams};
+use lance_index::IndexType;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::info;
