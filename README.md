@@ -14,29 +14,51 @@ embedder.index_table(arrow_table, table_name="films_table")
 similar_movies = embedder.find_similar("adventures jungle animals", "films_table", 10)
 ```
 
-Indexing a dataframe using DfEmbedder starts by representing each row in the dataframe as a string that follows the format: `col0_name is col0_value; col1_name is col1_value`. Next, all the textual representations are embedded using a [static embedding model](https://huggingface.co/blog/static-embeddings) (a method that can generate embeddings on CPU much faster than common frameworks do on GPU with very little loss of quality). Finally, it writes data as a table in Lance format.
-
-The vector data can then be accessed using `DfEmbedder`'s `find_similar` method, using `LanceDB` 
-
-```python
-import lancedb
-db = lancedb.connect("tmdb_db")
-tbl = db.open_table("films_table")
-```
-
-or as a Llamaindex `VectorStore`
-
-*Note that DfEmbedder is an early version and work in progress. Would appriciate any feedback or comment.*
+*DfEmbedder is an early version and work in progress. Feedback and comments will be highly appriciated.*
 
 ## Main Features
 
-- **Rust:** For blazing-fast, multi-threaded embedding and indexing.
+- **Rust Backend:** For blazing-fast, multi-threaded embedding and indexing.
 - **Apache Arrow:** To seamlessly work with data from libraries like Polars, Pandas (via PyArrow), etc.
 - **Static Embeddings:** Uses efficient static embedding model for generating text embedding 100X faster.
 - **Lance Format:** For optimized storage and fast vector similarity searches.
 - **PyO3:** To provide a clean and easy-to-use Python API.
 
 How fast is DF Embedder? benchamrks are often misleading and users should run their own analysis. To give a general idea, I was able to index about 1.2M rows from the TMDB movie dataset in about 100 seconds, using a machine with 10 CPU cores. Thats reading, embedding, indexing and writing more than 10K rows per second. And there are still ways to improve its performance by further tunning its params.
+
+## How does DF Embedder work?
+
+Indexing a dataframe using DfEmbedder starts by representing each row in the dataframe as a string that follows the format: `col0_name is col0_value; col1_name is col1_value`. Next, all strings are embedded using a [static embedding model](https://huggingface.co/blog/static-embeddings) (an embedding method that can generate embedding on CPU in blazing speed with very little loss of quality). Finally, it writes data as a table in Lance format.
+
+There are several ways to search and query Lance tables created using DfEmbedder
+
+1. You can use `DfEmbedder`'s `find_similar` method
+2. You can use `LanceDB`
+
+```python
+import lancedb
+db = lancedb.connect("tmdb_db")
+tbl = db.open_table("films_table")
+# you need the embedder to embed a query
+vector = embedder.embed_string(text)
+# run a vector search
+tbl.search(vector).limit(10).to_list()
+```
+
+3. You can use its Llamaindex `VectorStore` interface
+
+```python
+from dfembed import DfEmbedder, DfEmbedVectorStore
+
+# because we use our own embedding model
+Settings.embed_model = MockEmbedding(embed_dim=1024)
+vector_store = DfEmbedVectorStore(
+    df_embedder=embedder,
+    table_name=table_name
+)
+index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
+query_engine = index.as_query_engine(similarity_top_k=5, llm=llm)
+```
 
 ## Usage
 

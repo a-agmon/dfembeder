@@ -153,6 +153,20 @@ impl DfEmbedderRust {
                 })
         })
     }
+
+    /// Embeds a single string using the static embedding model.
+    fn embed_string(&self, text: &str) -> PyResult<Vec<f32>> {
+        let text_vec = vec![text];
+        let result = self.embedder.embed_batch_vec(&text_vec).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Error embedding string: {}",
+                e
+            ))
+        })?;
+        // asert that we have one embedding
+        assert_eq!(result.len(), 1);
+        Ok(result[0].clone())
+    }
 }
 
 /// Define the Python module.

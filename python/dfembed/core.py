@@ -100,6 +100,18 @@ class DfEmbedder:
         """
         return self._rust_embedder.find_similar(query, table_name, k)
 
+    def embed_string(self, text: str) -> list[float]:
+        """
+        Embed a single string using the static embedding model.
+
+        Args:
+            text: The string to embed.
+
+        Returns:
+            A list of floats representing the embedding of the string.
+        """
+        return self._rust_embedder.embed_string(text)
+
     # Example of accessing configuration (if needed)
     # def get_database_path(self) -> str:
     #    # If the Rust class exposed its fields (needs #[pyo3(get)])

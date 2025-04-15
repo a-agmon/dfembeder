@@ -174,6 +174,13 @@ def test_tmdb_integration():
         f"Assertion Failed: Expected target ID {TARGET_ID} to be present in one of the strings in the results list.\nResults:\n{results}"
     print(f"Assertion passed: Target ID {TARGET_ID} found in search results.")
 
+    # 6. Embed a string
+    text = "adventures jungle animals"
+    embedding = embedder.embed_string(text)
+    assert isinstance(embedding, list), f"Expected embedding to be a list, but got {type(embedding)}: {embedding}"
+    assert len(embedding) == 1024, f"Expected embedding to be of length 1024, but got {len(embedding)}: {embedding}"
+    
+
 # Optional: A separate small test to specifically check directory creation,
 # though the main test already includes assertions for this.
 def test_db_directory_created_after_indexing():
