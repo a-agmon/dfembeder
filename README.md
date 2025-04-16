@@ -2,6 +2,10 @@
 
 DF Embedder is a high-performance Python library (with a Rust backend) that embeds, indexes and turns your dataframes into fast vector stores (based on [Lance format](https://github.com/lancedb/lance)) in a few lines of code.
 
+```bash
+pip install dfembed
+```
+
 ```python
 # read a dataset using polars or pandas
 df = pl.read_csv("tmdb.csv")
@@ -13,6 +17,7 @@ embedder.index_table(arrow_table, table_name="films_table")
 # run similarities queries
 similar_movies = embedder.find_similar("adventures jungle animals", "films_table", 10)
 ```
+
 
 *DfEmbedder is still an early version and work in progress. Feedback and comments will be highly appriciated.*
 
@@ -58,10 +63,12 @@ vector_store = DfEmbedVectorStore(
 )
 index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
 query_engine = index.as_query_engine(similarity_top_k=5, llm=llm)
+
 ```
 
-## Usage
+See more usage examples in the notebook [here](examples/example.ipynb)
 
+## Usage
 
 ### Constructor Parameters
 
@@ -91,7 +98,7 @@ arrow_table = df.to_arrow()
 embedder = DfEmbedder(
     num_threads=8,              # Use 8 threads for embedding or defaults to avail num of cores
     write_buffer_size=3500,     # Buffer 3500 embeddings before writing
-    database_name="tmdb_db",    # Path to the Lance database directory        
+    database_name="tmdb_db",    # Path to the Lance database directory      
 )
 table_name = "tmdb_table" 
 embedder.index_table(arrow_table, table_name=table_name)
@@ -100,7 +107,6 @@ query = "adventures jungle animals"
 results = embedder.find_similar(query=query, table_name=table_name, k=10)
 
 ```
-
 
 ### Core Methods
 
