@@ -7,6 +7,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use thiserror::Error;
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer};
+use tracing::debug;
 
 const MODEL_URL_BASE: &str = "https://huggingface.co/sentence-transformers/static-retrieval-mrl-en-v1/resolve/main/0_StaticEmbedding";
 const MODEL_FILES: [&str; 2] = ["model.safetensors", "tokenizer.json"];
@@ -63,7 +64,7 @@ impl Embedder {
         // Get the embedding weights tensor
         let embedding_tensor = tensors.tensor("embedding.weight")?;
         let shape = embedding_tensor.shape();
-        println!("Loaded embedding weights with shape: {:?}", shape);
+        debug!("Loaded embedding weights with shape: {:?}", shape);
 
         // Convert to candle tensor
         let embedding_weights = Tensor::from_raw_buffer(

@@ -5,6 +5,7 @@ import shutil
 import os
 import pathlib
 import pytest
+# run with `pytest -s -v tests/test_integration.py`
 # Assuming DfEmbedder is importable from the 'dfembed' package/module
 # Adjust the import below if your structure is different
 # from dfembed import DfEmbedder # Moved inside the test function
@@ -13,7 +14,7 @@ import pytest
 # Assumes the test file is in tests/ and the project root is the parent
 PROJECT_ROOT = pathlib.Path(__file__).parent.parent
 # Path to the specific wheel file, relative to the project root
-SPECIFIC_WHEEL_PATH = PROJECT_ROOT / "target" / "wheels" / "dfembed-0.1.1-cp310-cp310-manylinux_2_35_x86_64.whl"
+SPECIFIC_WHEEL_PATH = PROJECT_ROOT / "target" / "wheels" / "dfembed-0.1.2-cp310-cp310-manylinux_2_35_x86_64.whl"
 # Assumes test data is in test-data/
 TEST_DATA_DIR = PROJECT_ROOT / "test-data"
 TMDB_CSV = TEST_DATA_DIR / "tmdb.csv"
@@ -173,6 +174,13 @@ def test_tmdb_integration():
     assert found, \
         f"Assertion Failed: Expected target ID {TARGET_ID} to be present in one of the strings in the results list.\nResults:\n{results}"
     print(f"Assertion passed: Target ID {TARGET_ID} found in search results.")
+
+    # 6. Embed a string
+    text = "adventures jungle animals"
+    embedding = embedder.embed_string(text)
+    assert isinstance(embedding, list), f"Expected embedding to be a list, but got {type(embedding)}: {embedding}"
+    assert len(embedding) == 1024, f"Expected embedding to be of length 1024, but got {len(embedding)}: {embedding}"
+    
 
 # Optional: A separate small test to specifically check directory creation,
 # though the main test already includes assertions for this.
