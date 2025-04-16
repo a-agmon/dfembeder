@@ -1,5 +1,6 @@
 use arrow::array::RecordBatch;
 use arrow::datatypes::Schema;
+use tracing::debug;
 
 use std::sync::Arc;
 
@@ -72,7 +73,7 @@ impl Indexer {
 
             threadpool.spawn(move || {
                 let thread_id = std::thread::current().id();
-                info!("Starting embedding thread id {:?}", thread_id);
+                debug!("Starting embedding thread id {:?}", thread_id);
                 let embed_model_clone = Embedder::new().unwrap();
                 info!("Created embedder for thread id {:?}", thread_id);
                 embed_text_chunks(

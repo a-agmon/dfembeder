@@ -5,10 +5,9 @@ use arrow::record_batch::{RecordBatch, RecordBatchIterator};
 use futures::TryStreamExt;
 use lance::dataset::Dataset;
 use lance::dataset::{WriteMode, WriteParams};
-use lance_index::IndexType;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tracing::info;
+use tracing::debug;
 
 use crate::embedding::static_embeder::Embedder;
 
@@ -82,7 +81,7 @@ impl LanceStore {
             .try_collect::<Vec<_>>() // Collect RecordBatches from the stream
             .await?;
 
-        info!("Found {} similar results.", results_batches.len());
+        debug!("Found {} similar results.", results_batches.len());
         let mut found_texts: Vec<String> = Vec::new();
 
         for batch in results_batches {
@@ -92,7 +91,7 @@ impl LanceStore {
             if let Some(text_col) = batch.column(0).as_any().downcast_ref::<StringArray>() {
                 for text_val_opt in text_col.iter() {
                     if let Some(text_val) = text_val_opt {
-                        info!("  Found similar text: {}", text_val);
+                        debug!("  Found similar text: {}", text_val);
                         found_texts.push(text_val.to_string());
                     }
                 }

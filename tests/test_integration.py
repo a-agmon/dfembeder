@@ -14,7 +14,7 @@ import pytest
 # Assumes the test file is in tests/ and the project root is the parent
 PROJECT_ROOT = pathlib.Path(__file__).parent.parent
 # Path to the specific wheel file, relative to the project root
-SPECIFIC_WHEEL_PATH = PROJECT_ROOT / "target" / "wheels" / "dfembed-0.1.1-cp310-cp310-manylinux_2_35_x86_64.whl"
+SPECIFIC_WHEEL_PATH = PROJECT_ROOT / "target" / "wheels" / "dfembed-0.1.2-cp310-cp310-manylinux_2_35_x86_64.whl"
 # Assumes test data is in test-data/
 TEST_DATA_DIR = PROJECT_ROOT / "test-data"
 TMDB_CSV = TEST_DATA_DIR / "tmdb.csv"

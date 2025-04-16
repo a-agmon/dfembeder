@@ -3,6 +3,7 @@ use once_cell::sync::Lazy;
 use pyo3::Bound;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
+use tracing::debug;
 use std::path::PathBuf;
 use std::sync::Once;
 use std::time::Instant;
@@ -96,12 +97,12 @@ impl DfEmbedderRust {
 
     /// Indexes an Arrow table using the configuration stored in the DfEmbedderRust instance.
     fn index_table(&self, py_arrow_table: &Bound<'_, PyAny>, table_name: &str) -> PyResult<()> {
-        info!("Indexing Arrow table via DfEmbedderRust");
+        debug!("Indexing Arrow table via DfEmbedderRust");
         let py_table = convert_py_to_arrow_table(py_arrow_table)?;
         let ts = Instant::now();
-        info!("Getting record batches");
+        debug!("Getting record batches");
         let record_batches = py_table.batches();
-        info!("Got record batches in {:?}", ts.elapsed());
+        debug!("Got record batches in {:?}", ts.elapsed());
 
         if record_batches.is_empty() {
             error!("Arrow Table contains no batches.");
