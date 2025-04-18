@@ -1,5 +1,5 @@
 # DF Embedder
-
+[![PyPI Downloads](https://static.pepy.tech/badge/dfembed)](https://pepy.tech/projects/dfembed) <br/>
 DF Embedder is a high-performance Python library (with a Rust backend) that embeds, indexes and turns your dataframes into fast vector stores (based on [Lance format](https://github.com/lancedb/lance)) in a few lines of code.
 
 ```bash
