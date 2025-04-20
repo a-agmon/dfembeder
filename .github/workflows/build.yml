@@ -133,7 +133,7 @@ jobs:
     env:
       PYTHON_TAG: ${{ matrix.python_tag }}
       PYTHON_BIN: /opt/python/${{ matrix.python_tag }}/bin/python
-      PATH: /opt/python/${{ matrix.python_tag }}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.cargo/bin
+      PATH: /opt/python/${{ matrix.python_tag }}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     steps:
       - uses: actions/checkout@v4
 
@@ -158,6 +158,9 @@ jobs:
         run: |
           curl https://sh.rustup.rs -sSf | sh -s -- -y
           . $HOME/.cargo/env
+
+      - name: Add Cargo to PATH for future steps
+        run: echo "PATH=$HOME/.cargo/bin:$PATH" >> $GITHUB_ENV
 
       - name: Build wheels
         run: |
