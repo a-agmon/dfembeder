@@ -122,6 +122,56 @@ jobs:
           name: wheels-macos-${{ matrix.platform.target }}
           path: dist
 
+  manylinux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python_tag: ["cp39-cp39", "cp310-cp310", "cp311-cp311", "cp312-cp312"]
+    container:
+      image: quay.io/pypa/manylinux_2_28_x86_64
+      options: --user root
+    env:
+      PYTHON_TAG: ${{ matrix.python_tag }}
+      PYTHON_BIN: /opt/python/${{ matrix.python_tag }}/bin/python
+      PATH: /opt/python/${{ matrix.python_tag }}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          yum install -y curl gcc gcc-c++ make openssl-devel pkgconfig perl perl-IPC-Cmd unzip e2fsprogs-libs krb5-libs krb5-devel
+
+      - name: Install newer protoc
+        run: |
+          PROTOC_VERSION="3.19.4"
+          PROTOC_ZIP="protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+          curl -OL "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/${PROTOC_ZIP}"
+          unzip -o "${PROTOC_ZIP}" -d /usr/local bin/protoc
+          unzip -o "${PROTOC_ZIP}" -d /usr/local include/*
+          rm -f "${PROTOC_ZIP}"
+
+      - name: Install build dependencies
+        run: |
+          $PYTHON_BIN -m pip install --upgrade pip maturin
+
+      - name: Install Rust toolchain
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          . $HOME/.cargo/env
+
+      - name: Add Cargo to PATH for future steps
+        run: echo "PATH=$HOME/.cargo/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Build wheels
+        run: |
+          maturin build --release --out dist --manylinux 2_28 -i $PYTHON_BIN
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-manylinux_2_28_${{ matrix.python_tag }}
+          path: dist
+
   sdist:
     runs-on: ubuntu-latest
     steps:
@@ -141,7 +191,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
-    needs: [linux, windows, macos, sdist]
+    needs: [linux, windows, macos, manylinux, sdist]
     permissions:
       # Use to sign the release artifacts
       id-token: write

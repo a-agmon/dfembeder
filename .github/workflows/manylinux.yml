@@ -1,0 +1,62 @@
+name: Manylinux Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  manylinux:
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/pypa/manylinux2014_x86_64
+      options: --user root
+    env:
+      PATH: /opt/python/cp310-cp310/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.cargo/bin
+      OPENSSL_NO_VENDOR: 1
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          yum install -y curl gcc gcc-c++ make openssl-devel pkgconfig perl perl-IPC-Cmd unzip e2fsprogs-libs krb5-libs krb5-devel
+
+      - name: Install Node.js (required for upload-artifact)
+        if: env.ACT != 'true'
+        run: |
+          yum install -y epel-release
+          yum install -y nodejs
+
+      - name: Install newer protoc
+        run: |
+          PROTOC_VERSION="3.19.4"
+          PROTOC_ZIP="protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+          curl -OL "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/${PROTOC_ZIP}"
+          unzip -o "${PROTOC_ZIP}" -d /usr/local bin/protoc
+          unzip -o "${PROTOC_ZIP}" -d /usr/local include/*
+          rm -f "${PROTOC_ZIP}"
+
+      - name: Set LD_LIBRARY_PATH for subsequent steps
+        run: echo "LD_LIBRARY_PATH=/usr/lib64:/usr/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+
+      - name: Install build dependencies
+        run: |
+          python3.10 -m pip install --upgrade pip maturin auditwheel
+
+      - name: Install Rust toolchain
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          . $HOME/.cargo/env
+
+      - name: Add Cargo to PATH for future steps
+        run: echo "PATH=$HOME/.cargo/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Build wheels with maturin
+        run: |
+          maturin build --release --out dist --manylinux 2014 -i /opt/python/cp310-cp310/bin/python
+
+      - name: Upload manylinux artifacts
+        if: env.ACT != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-manylinux2014_x86_64
+          path: dist 
