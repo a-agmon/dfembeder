@@ -1,4 +1,7 @@
 # DF Embedder
+<p align="center">
+  <img src="web/main.png" alt="DF Embedder Logo" width="200"/> 
+</p>
 [![PyPI Downloads](https://static.pepy.tech/badge/dfembed)](https://pepy.tech/projects/dfembed) <br/>
 DF Embedder is a blazing-fast Python library (with a Rust backend) that embeds, indexes and turns your dataframes into fast vector stores (based on [Lance format](https://github.com/lancedb/lance)) in a few lines of code.
 It is aimed for use cases in which you have a dataframe with textual data that you want to embed and load to a vector db, in order to conduct vector search. It is opinionated and specifically aimed to deal with huge tables that need to be embedded fast. It's fast and efficient but uses its own embedding model and textual representation method. Read on for the details. 
