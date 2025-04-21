@@ -8,6 +8,7 @@ pip install dfembed
 ```
 
 ```python
+import polars as pl
 # read a dataset using polars or pandas
 df = pl.read_csv("tmdb.csv")
 # turn into an arrow dataset
