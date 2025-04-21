@@ -19,52 +19,6 @@ permissions:
   contents: read
 
 jobs:
-  linux:
-    runs-on: ${{ matrix.platform.runner }}
-    strategy:
-      matrix:
-        platform:
-          - runner: ubuntu-22.04
-            target: x86_64
-          # Comment out other targets to keep things simple
-          # - runner: ubuntu-22.04
-          #   target: x86
-          # - runner: ubuntu-22.04
-          #   target: s390x
-          # - runner: ubuntu-22.04
-          #   target: ppc64le
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: 3.x
-      - name: Install bindgen dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y llvm-dev libclang-dev clang
-      - name: Install protobuf compiler
-        run: |
-          sudo apt-get install -y protobuf-compiler
-      - name: Install OpenSSL
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev openssl
-      - name: Install Perl for OpenSSL vendored build
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y perl cpanminus
-          sudo cpanm --notest IPC::Cmd
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-linux-${{ matrix.platform.target }}
-          path: dist
-
   windows:
     runs-on: ${{ matrix.platform.runner }}
     strategy:
@@ -95,31 +49,28 @@ jobs:
           path: dist
 
   macos:
-    runs-on: ${{ matrix.platform.runner }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
-        platform:
-          - runner: macos-13
-            target: x86_64
-          - runner: macos-14
-            target: aarch64
+        runner: [macos-13, macos-14]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: 3.x
+          python-version: ${{ matrix.python-version }}
       - name: Install protobuf compiler
         run: brew install protobuf
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          target: ${{ matrix.platform.target }}
+          target: ${{ matrix.runner == 'macos-13' && 'x86_64' || 'aarch64' }}
           args: --release --out dist --find-interpreter
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-macos-${{ matrix.platform.target }}
+          name: wheels-macos-${{ matrix.runner }}-py${{ matrix.python-version }}
           path: dist
 
   manylinux:
@@ -191,7 +142,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
-    needs: [linux, windows, macos, manylinux, sdist]
+    needs: [windows, macos, manylinux, sdist]
     permissions:
       # Use to sign the release artifacts
       id-token: write
