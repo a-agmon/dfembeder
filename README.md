@@ -18,7 +18,7 @@ embedder.index_table(arrow_table, table_name="films_table")
 # run similarities queries
 similar_movies = embedder.find_similar("adventures jungle animals", "films_table", 10)
 ```
-
+See more usage examples in the notebook [here](examples/example.ipynb)
 
 *DfEmbedder is still an early version and work in progress. Feedback and comments will be highly appriciated.*
 
