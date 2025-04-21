@@ -1,4 +1,4 @@
-# DF Embedder
+
 <p align="center">
   <img src="web/main.png" alt="DF Embedder Logo" width="200"/> 
 </p>
