@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="web/main.png" alt="DF Embedder Logo" width="400"/> 
+  <img src="web/main.png" alt="DF Embedder Logo" width="300"/> 
 
 [![PyPI Downloads](https://static.pepy.tech/badge/dfembed)](https://pepy.tech/projects/dfembed) <br/>
 </p>
