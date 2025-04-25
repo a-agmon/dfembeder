@@ -10,7 +10,7 @@ install: build
 
 # Run the Python tests
 test: install
-	python -m pytest python_tests/test_analyzer.py -v
+	pytest -s -v tests/test_integration.py
 
 # Run the example script
 run: install
