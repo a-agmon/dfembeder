@@ -11,6 +11,8 @@ use tracing::debug;
 
 use crate::embedding::static_embeder::Embedder;
 
+
+
 pub struct LanceStore {
     schema: Arc<Schema>,
     file_path: String,
