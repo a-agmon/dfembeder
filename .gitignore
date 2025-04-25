@@ -30,4 +30,4 @@ __pycache__/
 *.pyw
 *.pyz
 *.whl
-*.so
+*.sopython/dfembed/dfembed.cpython-310-x86_64-linux-gnu.so
