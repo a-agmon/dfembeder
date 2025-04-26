@@ -55,22 +55,3 @@ fn write_embedding_buffer(
     embedding_buffer.embeddings.clear();
     Ok(())
 }
-
-pub fn start_parallel_writers_shared(
-    store: Arc<LanceStore>,
-    receiver: Receiver<EmbeddingBatch>,
-    write_buffer_size: usize,
-    num_writers: usize,
-    rt: Arc<tokio::runtime::Runtime>,
-) -> Vec<JoinHandle<anyhow::Result<()>>> {
-    (0..num_writers)
-        .map(|_| {
-            let store = Arc::clone(&store);
-            let receiver = receiver.clone();
-            let rt = Arc::clone(&rt);
-            std::thread::spawn(move || {
-                start_writing_thread(&store, receiver, write_buffer_size, rt)
-            })
-        })
-        .collect()
-}

@@ -61,13 +61,13 @@ impl Indexer {
         }
         drop(send_to_embedder);
         // start embedding thread
-        let coordinator = EmbeddingCoordinator::new(
+        EmbeddingCoordinator::new(
             num_workers,
             receive_from_embedder,
             send_to_writer,
             embedding_chunk_size,
-        );
-        coordinator.start();
+        )
+        .start();
         if let Err(e) =
             lance_writer::start_writing_thread(&store, receive_from_writer, write_buffer_size, rt)
         {
