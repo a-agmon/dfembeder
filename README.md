@@ -147,7 +147,7 @@ results = embedder.find_similar(query=query, table_name=table_name, k=10)
 
 MIT
 
-## GitHub Actions CI/CD (WIP)
+## GitHub Actions CI/CD (WIP):
 
 ### Releasing a New Version
 
